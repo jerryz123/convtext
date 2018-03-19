@@ -71,7 +71,7 @@ class WaveNet(object):
         self.variables = dict()
 
         # Generate all variables
-        with tf.variable_scope('wavenet'):
+        with tf.variable_scope('wavenet_vars'):
             # Generate weights and biases for input layer
             with tf.variable_scope('start_layer'):
                 filter = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[self.filter_width,
@@ -85,44 +85,45 @@ class WaveNet(object):
 
             # Generate weights, biases for dilated layers
             self.variables['dilated_layers'] = []
-            for i, dilation in enumerate(self.dilations):
-                with tf.variable_scope('layer{}'.format(i)):
-                    filter = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[self.filter_width,
-                                                                                       self.residual_channels,
-                                                                                       self.dilation_channels]),
-                                         name="layer{}_filter".format(i))
-                    gate   = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[self.filter_width,
-                                                                                       self.residual_channels,
-                                                                                       self.dilation_channels]),
-                                         name="layer{}_gate".format(i))
-                    dense  = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[1,
-                                                                                       self.dilation_channels,
-                                                                                       self.residual_channels]),
-                                         name="layer{}_dense".format(i))
-                    skip   = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[1,
-                                                                                       self.dilation_channels,
-                                                                                       self.skip_channels]),
-                                         name="layer{}_skip".format(i))
-                    if (self.use_biases):
-                        filter_bias = tf.Variable(tf.zeros([self.dilation_channels]),
-                                                  name="layer{}_filter_bias".format(i))
-                        gate_bias   = tf.Variable(tf.zeros([self.dilation_channels]),
-                                                  name="layer{}_gate_bias".format(i))
-                        dense_bias  = tf.Variable(tf.zeros([self.residual_channels]),
-                                                  name="layer{}_dense_bias".format(i))
-                        skip_bias   = tf.Variable(tf.zeros([self.skip_channels]),
-                                                  name="layer{}_skip_bias".format(i))
-                    else:
-                        filter_bias = gate_bias = dense_bias = skip_bias = None
+            with tf.variable_scope('dilated_layers'):
+                for i, dilation in enumerate(self.dilations):
+                    with tf.variable_scope('layer{}'.format(i)):
+                        filter = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[self.filter_width,
+                                                                                           self.residual_channels,
+                                                                                           self.dilation_channels]),
+                                             name="layer{}_filter".format(i))
+                        gate   = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[self.filter_width,
+                                                                                           self.residual_channels,
+                                                                                           self.dilation_channels]),
+                                             name="layer{}_gate".format(i))
+                        dense  = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[1,
+                                                                                           self.dilation_channels,
+                                                                                           self.residual_channels]),
+                                             name="layer{}_dense".format(i))
+                        skip   = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[1,
+                                                                                           self.dilation_channels,
+                                                                                           self.skip_channels]),
+                                             name="layer{}_skip".format(i))
+                        if (self.use_biases):
+                            filter_bias = tf.Variable(tf.zeros([self.dilation_channels]),
+                                                      name="layer{}_filter_bias".format(i))
+                            gate_bias   = tf.Variable(tf.zeros([self.dilation_channels]),
+                                                      name="layer{}_gate_bias".format(i))
+                            dense_bias  = tf.Variable(tf.zeros([self.residual_channels]),
+                                                      name="layer{}_dense_bias".format(i))
+                            skip_bias   = tf.Variable(tf.zeros([self.skip_channels]),
+                                                      name="layer{}_skip_bias".format(i))
+                        else:
+                            filter_bias = gate_bias = dense_bias = skip_bias = None
 
-                    self.variables['dilated_layers'].append({'filter':filter,
-                                                             'gate':gate,
-                                                             'dense':dense,
-                                                             'skip':skip,
-                                                             'filter_bias':filter_bias,
-                                                             'gate_bias':gate_bias,
-                                                             'dense_bias':dense_bias,
-                                                             'skip_bias':skip_bias})
+                        self.variables['dilated_layers'].append({'filter':filter,
+                                                                 'gate':gate,
+                                                                 'dense':dense,
+                                                                 'skip':skip,
+                                                                 'filter_bias':filter_bias,
+                                                                 'gate_bias':gate_bias,
+                                                                 'dense_bias':dense_bias,
+                                                                 'skip_bias':skip_bias})
             with tf.variable_scope('post_layer'):
                 filter1 = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[1,
                                                                                     self.skip_channels,
@@ -159,84 +160,87 @@ class WaveNet(object):
                                          scope    = 'start_layer')
 
             skip_outputs = []
-            for i, dilation in enumerate(self.dilations):
-                filter_weights = self.variables['dilated_layers'][i]['filter']
-                gate_weights   = self.variables['dilated_layers'][i]['gate']
-                dense_weights  = self.variables['dilated_layers'][i]['dense']
-                skip_weights   = self.variables['dilated_layers'][i]['skip']
+            with tf.name_scope("dilated_layers"):
+                for i, dilation in enumerate(self.dilations):
+                    with tf.name_scope("layer{}".format(i)):
+                        filter_weights = self.variables['dilated_layers'][i]['filter']
+                        gate_weights   = self.variables['dilated_layers'][i]['gate']
+                        dense_weights  = self.variables['dilated_layers'][i]['dense']
+                        skip_weights   = self.variables['dilated_layers'][i]['skip']
 
-                filter_bias    = self.variables['dilated_layers'][i]['filter_bias']
-                gate_bias      = self.variables['dilated_layers'][i]['gate_bias']
-                dense_bias     = self.variables['dilated_layers'][i]['dense_bias']
-                skip_bias      = self.variables['dilated_layers'][i]['skip_bias']
+                        filter_bias    = self.variables['dilated_layers'][i]['filter_bias']
+                        gate_bias      = self.variables['dilated_layers'][i]['gate_bias']
+                        dense_bias     = self.variables['dilated_layers'][i]['dense_bias']
+                        skip_bias      = self.variables['dilated_layers'][i]['skip_bias']
 
-                # The following activation function (gated activation) is taken from WaveNet
-                # They found that this works well for audio data. We might want to
-                #   modify this for textual data
-                #
-                #        |-> [gate]   -|        |-> 1x1 conv -> skip output
-                #        |             |-> (*) -|
-                # input -|-> [filter] -|        |-> 1x1 conv -|
-                #        |                                    |-> (+) -> dense output
-                #        |------------------------------------|
-                #
-                # filter receives a tanh activation, gate receives a sigmoid
-                # Skip outputs are sent to end
-                # Residual gets added to 1x1 conv output
-
-
-                # Generate tanh(W_{filter} x) + sigmoid(W_{gate} x)
-                filter_output = causal_conv(inputs   = current_tensor,
-                                            weights  = filter_weights,
-                                            biases   = filter_bias,
-                                            dilation = dilation,
-                                            scope    = 'layer{}'.format(i))
-                gate_output   = causal_conv(inputs   = current_tensor,
-                                            weights  = gate_weights,
-                                            biases   = gate_bias,
-                                            dilation = dilation,
-                                            scope    = 'layer{}'.format(i))
-                filter_p_gate = tf.tanh(filter_output) * tf.sigmoid(gate_output)
-
-                # Generate dense output and add residual
-                current_tensor = current_tensor + causal_conv(inputs   = filter_p_gate,
-                                                              weights  = dense_weights,
-                                                              biases   = dense_bias,
-                                                              dilation = 1,
-                                                              scope    = 'layer{}'.format(i))
-
-                # Generate skip_output
-                skip_output = causal_conv(inputs   = filter_p_gate,
-                                          weights  = skip_weights,
-                                          biases   = dense_bias,
-                                          dilation = 1,
-                                          scope    = 'layer{}'.format(i))
+                        # The following activation function (gated activation) is taken from WaveNet
+                        # They found that this works well for audio data. We might want to
+                        #   modify this for textual data
+                        #
+                        #        |-> [gate]   -|        |-> 1x1 conv -> skip output
+                        #        |             |-> (*) -|
+                        # input -|-> [filter] -|        |-> 1x1 conv -|
+                        #        |                                    |-> (+) -> dense output
+                        #        |------------------------------------|
+                        #
+                        # filter receives a tanh activation, gate receives a sigmoid
+                        # Skip outputs are sent to end
+                        # Residual gets added to 1x1 conv output
 
 
-                skip_outputs.append(skip_output)
+                        # Generate tanh(W_{filter} x) + sigmoid(W_{gate} x)
+                        filter_output = causal_conv(inputs   = current_tensor,
+                                                    weights  = filter_weights,
+                                                    biases   = filter_bias,
+                                                    dilation = dilation,
+                                                    scope    = 'layer{}_filter'.format(i))
+                        gate_output   = causal_conv(inputs   = current_tensor,
+                                                    weights  = gate_weights,
+                                                    biases   = gate_bias,
+                                                    dilation = dilation,
+                                                    scope    = 'layer{}_gate'.format(i))
+                        filter_p_gate = tf.tanh(filter_output) * tf.sigmoid(gate_output)
+
+                        # Generate dense output and add residual
+                        current_tensor = current_tensor + causal_conv(inputs   = filter_p_gate,
+                                                                      weights  = dense_weights,
+                                                                      biases   = dense_bias,
+                                                                      dilation = 1,
+                                                                      scope    = 'layer{}_dense'.format(i))
+
+                        # Generate skip_output
+                        skip_output = causal_conv(inputs   = filter_p_gate,
+                                                  weights  = skip_weights,
+                                                  biases   = dense_bias,
+                                                  dilation = 1,
+                                                  scope    = 'layer{}_skip'.format(i))
 
 
-            # Perform (+ skip_outputs) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
-            # postprocess the output.
-            filter1 = self.variables['post_layer']['filter1']
-            bias1   = self.variables['post_layer']['bias1']
-            filter2 = self.variables['post_layer']['filter2']
-            bias2   = self.variables['post_layer']['bias2']
+                        skip_outputs.append(skip_output)
 
-            # Sum the skip connections
-            skip_total = sum(skip_outputs)
-            relu1 = tf.nn.relu(skip_total)
-            conv1 = causal_conv(inputs   = relu1,
-                                weights  = filter1,
-                                biases   = bias1,
-                                dilation = 1,
-                                scope    = 'post_layer')
 
-            relu2 = tf.nn.relu(conv1)
-            conv2 = causal_conv(inputs   = relu2,
-                                weights  = filter2,
-                                biases   = bias2,
-                                dilation = 1,
-                                scope    = 'post_layer')
+            with tf.name_scope("post_layer"):
+                # Perform (+ skip_outputs) -> ReLU -> 1x1 conv -> ReLU -> 1x1 conv to
+                # postprocess the output.
+                filter1 = self.variables['post_layer']['filter1']
+                bias1   = self.variables['post_layer']['bias1']
+                filter2 = self.variables['post_layer']['filter2']
+                bias2   = self.variables['post_layer']['bias2']
+
+                # Sum the skip connections
+                skip_total = sum(skip_outputs)
+                relu1 = tf.nn.relu(skip_total)
+                conv1 = causal_conv(inputs   = relu1,
+                                    weights  = filter1,
+                                    biases   = bias1,
+                                    dilation = 1,
+                                    scope    = 'post_layer_0')
+
+                relu2 = tf.nn.relu(conv1)
+                conv2 = causal_conv(inputs   = relu2,
+                                    weights  = filter2,
+                                    biases   = bias2,
+                                    dilation = 1,
+                                    scope    = 'post_layer_1')
 
             return conv2
