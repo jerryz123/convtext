@@ -13,20 +13,18 @@ def causal_conv(inputs, weights, biases, dilation, scope):
     with tf.name_scope(scope):
         input_length = tf.shape(inputs)[1]
         filter_width = tf.shape(weights)[0]
+        padded_inputs = tf.pad(inputs,
+                               [(0, 0), ((filter_width - 1) * dilation, 0), (0, 0)])
 
         # The convolution filter will stop at the right edge of input stream
         # Need to pad off the left edge of the temporal dimesion
-        output = tf.nn.convolution(input=inputs,
+        output = tf.nn.convolution(input=padded_inputs,
                                    filter=weights,
-                                   padding='SAME',
+                                   padding='VALID',
                                    strides=[1],
                                    dilation_rate=[dilation])
-        # Slice away right edge of the output, since we want a causal convolutoin
-        output = tf.slice(output,
-                          [0, 0, 0],
-                          [-1, input_length, -1])
-        if biases:
-            output += biases
+
+        output += biases
         return output
 
 
@@ -114,7 +112,10 @@ class WaveNet(object):
                             skip_bias   = tf.Variable(tf.zeros([self.skip_channels]),
                                                       name="layer{}_skip_bias".format(i))
                         else:
-                            filter_bias = gate_bias = dense_bias = skip_bias = None
+                            filter_bias = tf.zeros([self.dilation_channels])
+                            gate_bias   = tf.zeros([self.dilation_channels])
+                            dense_bias  = tf.zeros([self.residual_channels])
+                            skip_bias   = tf.zeros([self.skip_channels])
 
                         self.variables['dilated_layers'].append({'filter':filter,
                                                                  'gate':gate,
@@ -202,18 +203,21 @@ class WaveNet(object):
                         filter_p_gate = tf.tanh(filter_output) * tf.sigmoid(gate_output)
 
                         # Generate dense output and add residual
-                        current_tensor = current_tensor + causal_conv(inputs   = filter_p_gate,
-                                                                      weights  = dense_weights,
-                                                                      biases   = dense_bias,
-                                                                      dilation = 1,
-                                                                      scope    = 'layer{}_dense'.format(i))
+                        current_tensor = current_tensor + tf.nn.conv1d(filter_p_gate,
+                                                                       dense_weights,
+                                                                       stride  = 1,
+                                                                       padding = 'SAME',
+                                                                       name    = 'layer{}_dense'.format(i)) \
+
+                        current_tensor += dense_bias
 
                         # Generate skip_output
-                        skip_output = causal_conv(inputs   = filter_p_gate,
-                                                  weights  = skip_weights,
-                                                  biases   = dense_bias,
-                                                  dilation = 1,
-                                                  scope    = 'layer{}_skip'.format(i))
+                        skip_output = tf.nn.conv1d(filter_p_gate,
+                                                   skip_weights,
+                                                   stride   = 1,
+                                                   padding  = 'SAME',
+                                                   name     = 'layer{}_skip'.format(i))
+                        skip_output += skip_bias
 
 
                         skip_outputs.append(skip_output)
@@ -230,17 +234,20 @@ class WaveNet(object):
                 # Sum the skip connections
                 skip_total = sum(skip_outputs)
                 relu1 = tf.nn.relu(skip_total)
-                conv1 = causal_conv(inputs   = relu1,
-                                    weights  = filter1,
-                                    biases   = bias1,
-                                    dilation = 1,
-                                    scope    = 'post_layer_0')
+                conv1 = tf.nn.conv1d(relu1,
+                                     filter1,
+                                     stride = 1,
+                                     padding = 'SAME',
+                                     name = 'post_layer_0')
+                conv1 += bias1
 
                 relu2 = tf.nn.relu(conv1)
-                conv2 = causal_conv(inputs   = relu2,
-                                    weights  = filter2,
-                                    biases   = bias2,
-                                    dilation = 1,
-                                    scope    = 'post_layer_1')
+                conv2 = tf.nn.conv1d(relu2,
+                                     filter2,
+                                     stride = 1,
+                                     padding = 'SAME',
+                                     name = 'post_layer_1')
+
+                conv2 += bias2
 
             return conv2
