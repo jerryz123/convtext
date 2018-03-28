@@ -16,7 +16,7 @@ L2_REGULARIZATION = 0
 DEBUG_STEP = 500
 NUM_EPOCHS = 10
 VALIDATION_SIZE = 100
-SAVE_DIR = "./models/shakespeare"
+SAVE_DIR = "./model_ckpts/shakespeare"
 
 corpus = Corpus()
 batches = corpus.create_batches_one_hot(batch_size=BATCH_SIZE,
