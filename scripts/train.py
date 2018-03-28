@@ -8,11 +8,13 @@ import os
 
 #TODO: Load these from config
 BATCH_SIZE = 1
-SEQ_LENGTH = 382
-USE_BIASES = True
+SEQ_LENGTH = 1024
+USE_BIASES = False
 VOCAB_SIZE = 75
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.001
 L2_REGULARIZATION = 0
+DILATIONS = [1, 2, 4, 8, 16, 32, 64, 128, 256,
+             1, 2, 4, 8, 16, 32, 64, 128, 256,]
 DEBUG_STEP = 500
 NUM_EPOCHS = 10
 VALIDATION_SIZE = 100
@@ -28,7 +30,8 @@ batches = batches[VALIDATION_SIZE:]
 
 wavenet = WaveNet(input_channels=VOCAB_SIZE,
                   batch_size=BATCH_SIZE,
-                  use_biases=USE_BIASES)
+                  use_biases=USE_BIASES,
+                  dilations=DILATIONS)
 input_data = tf.placeholder(tf.int32, [BATCH_SIZE, SEQ_LENGTH, VOCAB_SIZE])
 conv2 = wavenet.full_network(input_data)
 loss = one_hot_character_loss(conv2, input_data, l2_norm=L2_REGULARIZATION)
