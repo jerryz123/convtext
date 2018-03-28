@@ -67,6 +67,7 @@ class WaveNet(object):
         self.use_biases = use_biases
 
         self.variables = dict()
+        print("Receptive field is " + str((filter_width - 1) * sum(dilations) + 1))
 
         # Generate all variables
         with tf.variable_scope('wavenet_vars'):
@@ -152,6 +153,8 @@ class WaveNet(object):
 
         # Preprocess via initial causal convolution
         with tf.name_scope('wavenet'):
+            # Convert to float
+            inputs = tf.cast(inputs, tf.float32)
             # Normal convolution for preprocess
             current_tensor = inputs
             current_tensor = causal_conv(inputs   = current_tensor,

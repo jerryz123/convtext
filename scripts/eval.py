@@ -1,34 +1,31 @@
 import tensorflow as tf
 from models.wavenet import WaveNet
 from utils.loss_fns import one_hot_character_loss
-from utils.encodings import *
+from utils.encodings import to_one_hot
 from datasets.nltk_shakespeare import Corpus
 import random
 import os
+import numpy as np
 
 #TODO: Load these from config
 BATCH_SIZE = 1
 SEQ_LENGTH = 382
 USE_BIASES = True
 VOCAB_SIZE = 75
-LEARNING_RATE = 0.0001
-L2_REGULARIZATION = 0
-DEBUG_STEP = 500
-NUM_EPOCHS = 10
-VALIDATION_SIZE = 100
+LEARNING_RATE = 0.001
+L2_REGULARIZATION = 0.01
+NUM_EPOCHS = 1
 SAVE_DIR = "./models/shakespeare"
 
 corpus = Corpus()
 batches = corpus.create_batches_one_hot(batch_size=BATCH_SIZE,
                                         seq_length=SEQ_LENGTH,
                                         vocab_size=VOCAB_SIZE)
-validation = batches[:VALIDATION_SIZE]
-batches = batches[VALIDATION_SIZE:]
-
-
+random.shuffle(batches)
 wavenet = WaveNet(input_channels=VOCAB_SIZE,
                   batch_size=BATCH_SIZE,
                   use_biases=USE_BIASES)
+
 input_data = tf.placeholder(tf.int32, [BATCH_SIZE, SEQ_LENGTH, VOCAB_SIZE])
 conv2 = wavenet.full_network(input_data)
 loss = one_hot_character_loss(conv2, input_data, l2_norm=L2_REGULARIZATION)
@@ -45,29 +42,25 @@ with tf.Session() as sess:
     ckpt = tf.train.get_checkpoint_state(SAVE_DIR)
     writer = tf.summary.FileWriter("./log", sess.graph)
     sess.run(init_op)
-    if ckpt:
-        saver.restore(sess, ckpt.model_checkpoint_path)
+    saver.restore(sess, ckpt.model_checkpoint_path)
 
-    for e in range(NUM_EPOCHS):
-        random.shuffle(batches)
-        for bi, b in enumerate(batches):
-            feed = {input_data:b}
-            eval_loss, _, conv_op = sess.run([loss, optim, conv2], feed)
-            if bi % DEBUG_STEP == 0:
-                t_loss = 0
-                for v in validation:
-                    feed = {input_data:v}
-                    eval_loss, _, conv_op = sess.run([loss, optim, conv2], feed)
-                    t_loss += eval_loss
-                t_loss = t_loss / len(validation)
-                
-                print(str(bi) + " Loss " + str(t_loss))
-                # print("".join(one_hot_to_char(corpus.id2char, b[0][-10:])))
-                # print("".join(one_hot_to_char(corpus.id2char, conv_op[0][-10:])))
-                
-        checkpoint_path = os.path.join(SAVE_DIR, 'model.ckpt')
-        saver.save(sess, checkpoint_path, global_step=e*len(batches))
-        print("Model saved")
-            
 
-    writer.close()
+    init = batches[0]
+    init = "".join([corpus.id2char[np.argmax(j)] for j in init[0]])
+    output_str = init
+    init = (SEQ_LENGTH - len(init)) * " " + init
+
+    chars = np.array([corpus.char2id[c] for c in init])
+    one_hot = to_one_hot(corpus.char2id, chars)
+
+    while True:
+        feed = {input_data:np.expand_dims(one_hot, 0)}
+        output, = sess.run([conv2], feed)
+        out_id = np.argmax(output[0,-1])
+        out_char = corpus.id2char[out_id]
+        output_str += out_char
+        t = np.zeros((SEQ_LENGTH, VOCAB_SIZE))
+        t[:-1] = one_hot[1:]
+        t[-1][out_id] = 1
+        one_hot = t
+        print("".join([corpus.id2char[np.argmax(j)] for j in one_hot]))

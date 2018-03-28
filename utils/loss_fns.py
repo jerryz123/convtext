@@ -14,6 +14,7 @@ def one_hot_character_loss(net_outputs, inputs, l2_norm=0):
         shifted = tf.reshape(shifted, [-1, quantization_channels])
         prediction = tf.reshape(net_outputs, [-1, quantization_channels])
 
+
         loss = tf.nn.softmax_cross_entropy_with_logits(logits=prediction,
                                                        labels=shifted)
         loss = tf.reduce_mean(loss)
