@@ -17,7 +17,7 @@ L2_REGULARIZATION = 0.01
 DILATIONS = [1, 2, 4, 8, 16, 32, 64, 128, 256,
              1, 2, 4, 8, 16, 32, 64, 128, 256,]
 NUM_EPOCHS = 1
-SAVE_DIR = "./models/shakespeare"
+SAVE_DIR = "./model_ckpts/shakespeare"
 
 corpus = Corpus()
 batches = corpus.create_batches_one_hot(batch_size=BATCH_SIZE,
