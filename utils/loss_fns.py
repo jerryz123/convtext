@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-def one_hot_character_loss(net_outputs, inputs, l2_norm=0):
+def one_hot_character_loss(net_outputs, inputs, l2_norm=0, edge_length=0):
     """
     Returns loss when inputs and outputs are one-hot encoded character sequences
     """
@@ -13,7 +13,8 @@ def one_hot_character_loss(net_outputs, inputs, l2_norm=0):
         shifted = tf.pad(shifted, [(0, 0), (0, 1), (0, 0)])
         shifted = tf.reshape(shifted, [-1, quantization_channels])
         prediction = tf.reshape(net_outputs, [-1, quantization_channels])
-
+        shifted = shifted[:,-edge_length:]
+        prediction = prediction[:,-edge_length:]
 
         loss = tf.nn.softmax_cross_entropy_with_logits(logits=prediction,
                                                        labels=shifted)

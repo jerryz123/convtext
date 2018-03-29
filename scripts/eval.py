@@ -11,11 +11,11 @@ import numpy as np
 BATCH_SIZE = 1
 SEQ_LENGTH = 1024
 USE_BIASES = False
+DILATIONS = [1, 2, 4, 8, 16, 32, 64, 128, 256,
+             1, 2, 4, 8, 16, 32, 64, 128, 256]
 VOCAB_SIZE = 75
 LEARNING_RATE = 0.001
 L2_REGULARIZATION = 0.01
-DILATIONS = [1, 2, 4, 8, 16, 32, 64, 128, 256,
-             1, 2, 4, 8, 16, 32, 64, 128, 256,]
 NUM_EPOCHS = 1
 SAVE_DIR = "./model_ckpts/shakespeare"
 

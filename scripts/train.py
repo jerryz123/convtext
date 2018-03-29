@@ -1,22 +1,24 @@
+import random
+import os
+
+
 import tensorflow as tf
 from models.wavenet import WaveNet
 from utils.loss_fns import one_hot_character_loss
 from utils.encodings import *
 from datasets.nltk_shakespeare import Corpus
-import random
-import os
 
 #TODO: Load these from config
 BATCH_SIZE = 1
-SEQ_LENGTH = 1024
+SEQ_LENGTH = 2048
 USE_BIASES = False
-VOCAB_SIZE = 75
-LEARNING_RATE = 0.001
-L2_REGULARIZATION = 0
 DILATIONS = [1, 2, 4, 8, 16, 32, 64, 128, 256,
-             1, 2, 4, 8, 16, 32, 64, 128, 256,]
-DEBUG_STEP = 500
-NUM_EPOCHS = 10
+             1, 2, 4, 8, 16, 32, 64, 128, 256]
+VOCAB_SIZE = 75
+LEARNING_RATE = 0.0001
+L2_REGULARIZATION = 0
+DEBUG_STEP = 100
+NUM_EPOCHS = 100
 VALIDATION_SIZE = 100
 SAVE_DIR = "./model_ckpts/shakespeare"
 
@@ -34,7 +36,8 @@ wavenet = WaveNet(input_channels=VOCAB_SIZE,
                   dilations=DILATIONS)
 input_data = tf.placeholder(tf.int32, [BATCH_SIZE, SEQ_LENGTH, VOCAB_SIZE])
 conv2 = wavenet.full_network(input_data)
-loss = one_hot_character_loss(conv2, input_data, l2_norm=L2_REGULARIZATION)
+loss = one_hot_character_loss(conv2, input_data, l2_norm=L2_REGULARIZATION,
+                              edge_length=SEQ_LENGTH//2)
 
 optimizer = tf.train.AdamOptimizer(learning_rate=LEARNING_RATE)
 trainable = tf.trainable_variables()

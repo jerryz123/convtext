@@ -51,10 +51,10 @@ class WaveNet(object):
                             1, 2, 4, 8, 16, 32, 64,
                             1, 2, 4, 8, 16, 32, 64],
                  filter_width=2,
-                 residual_channels=16,
+                 residual_channels=32,
                  dilation_channels=32,
                  input_channels=1,
-                 skip_channels=16,
+                 skip_channels=256,
                  use_biases=False):
         self.batch_size = batch_size
         self.dilations = dilations
