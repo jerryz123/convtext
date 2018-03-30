@@ -30,10 +30,7 @@ def main():
                                             seq_length=SEQ_LENGTH,
                                             vocab_size=VOCAB_SIZE)
     random.shuffle(batches)
-    wavenet = WaveNet(input_channels=VOCAB_SIZE,
-                      batch_size=BATCH_SIZE,
-                      use_biases=USE_BIASES,
-                      dilations=DILATIONS)
+    wavenet = WaveNet(conf)
 
     input_data = tf.placeholder(tf.int32, [BATCH_SIZE, SEQ_LENGTH, VOCAB_SIZE])
     conv2 = wavenet.full_network(input_data)

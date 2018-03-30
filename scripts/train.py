@@ -16,11 +16,8 @@ def main():
     hyperparams = SourceFileLoader('hyperparams', FLAGS.config).load_module()
     conf = hyperparams.configuration
 
-    #TODO: Load these from config
     BATCH_SIZE = conf['BATCH_SIZE']
     SEQ_LENGTH = conf['SEQ_LENGTH']
-    USE_BIASES = conf['USE_BIASES']
-    DILATIONS = conf['DILATIONS']
     VOCAB_SIZE = conf['VOCAB_SIZE']
     LEARNING_RATE = conf['LEARNING_RATE']
     L2_REGULARIZATION = conf['L2_REGULARIZATION']
@@ -37,10 +34,7 @@ def main():
     batches = batches[VALIDATION_SIZE:]
 
 
-    wavenet = WaveNet(input_channels=VOCAB_SIZE,
-                      batch_size=BATCH_SIZE,
-                      use_biases=USE_BIASES,
-                      dilations=DILATIONS)
+    wavenet = WaveNet(conf)
     input_data = tf.placeholder(tf.int32, [BATCH_SIZE, SEQ_LENGTH, VOCAB_SIZE])
     conv2 = wavenet.full_network(input_data)
     loss = one_hot_character_loss(conv2, input_data, l2_norm=L2_REGULARIZATION,
