@@ -45,29 +45,19 @@ class WaveNet(object):
     - skip_channels: Number of filters for skip-connections
     - use_biases: Sets if bias is added to convolutions. Usually set to False
     """
-    def __init__(self,
-                 batch_size=1,
-                 dilations=[1, 2, 4, 8, 16, 32, 64,
-                            1, 2, 4, 8, 16, 32, 64,
-                            1, 2, 4, 8, 16, 32, 64],
-                 filter_width=2,
-                 residual_channels=32,
-                 dilation_channels=32,
-                 input_channels=1,
-                 skip_channels=256,
-                 use_biases=False):
-        self.batch_size = batch_size
-        self.dilations = dilations
-        self.filter_width = filter_width
-        self.residual_channels = residual_channels
-        self.dilation_channels = dilation_channels
-        self.input_channels = input_channels
-        self.output_channels = input_channels
-        self.skip_channels = 16
-        self.use_biases = use_biases
+    def __init__(self,conf):
+        self.batch_size = conf['BATCH_SIZE']
+        self.dilations = conf['DILATIONS']
+        self.filter_width = conf['FILTER_WIDTH']
+        self.residual_channels = conf['RESIDUAL_CHANNELS']
+        self.dilation_channels = conf['DILATION_CHANNELS']
+        self.input_channels = conf['NUM_CHANNELS']
+        self.output_channels = conf['NUM_CHANNELS']
+        self.skip_channels = conf['SKIP_CHANNELS']
+        self.use_biases = conf['USE_BIASES']
 
         self.variables = dict()
-        print("Receptive field is " + str((filter_width - 1) * sum(dilations) + 1))
+        print("Receptive field is " + str((self.filter_width - 1) * sum(self.dilations) + 1))
 
         # Generate all variables
         with tf.variable_scope('wavenet_vars'):

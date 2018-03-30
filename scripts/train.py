@@ -1,6 +1,6 @@
 import random
 import os
-import imp
+from importlib.machinery import SourceFileLoader
 
 import tensorflow as tf
 from tensorflow.python.platform import flags
@@ -11,9 +11,9 @@ from datasets.nltk_shakespeare import Corpus
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
-    flags.DEFINE_string('config', '', 'configuration file')
+    flags.DEFINE_string('config', '', 'path to configuration file')
 def main():
-    hyperparams = imp.load_source('hyperparams', FLAGS.hyper)
+    hyperparams = SourceFileLoader('hyperparams', FLAGS.config).load_module()
     conf = hyperparams.configuration
 
     #TODO: Load these from config
