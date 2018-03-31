@@ -1,6 +1,15 @@
 import tensorflow as tf
 
-def read_text_dataset(filenames, batch_size, seq_length):
+def read_text_dataset(conf, is_training = True):
+    if is_training:
+        filenames = conf['TRAIN_FILES']
+    else:
+        filenames = conf['TEST_FILES']
+
+    conf['VOCAB_SIZE'] = 256
+
+    seq_length = conf['SEQ_LENGTH']
+    batch_size = conf['BATCH_SIZE']
     def _map_line(line):
         split = tf.string_split([line], delimiter='').values
         numeric_chars = tf.decode_raw(split, tf.uint8)[:,0]
@@ -12,7 +21,8 @@ def read_text_dataset(filenames, batch_size, seq_length):
 if __name__ == '__main__':
     import numpy as np
     sess = tf.Session()
-    datum = read_text_dataset(['corpus.txt'],2, 10)
+    conf = {'BATCH_SIZE' : 2, "SEQ_LENGTH" : 10, 'TRAIN_FILES' : ['corpus.txt']}
+    datum = read_text_dataset(conf)
     sess.run(datum.initializer)
     #print(sess.run(tf.string_split(datum.get_next(), delimiter='').values))
     data = sess.run(datum.get_next())

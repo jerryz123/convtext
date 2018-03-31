@@ -51,8 +51,8 @@ class WaveNet(object):
         self.filter_width = conf['FILTER_WIDTH']
         self.residual_channels = conf['RESIDUAL_CHANNELS']
         self.dilation_channels = conf['DILATION_CHANNELS']
-        self.input_channels = conf['NUM_CHANNELS']
-        self.output_channels = conf['NUM_CHANNELS']
+        self.input_channels = conf['VOCAB_SIZE']
+        self.output_channels = conf['VOCAB_SIZE']
         self.skip_channels = conf['SKIP_CHANNELS']
         self.use_biases = conf['USE_BIASES']
 
