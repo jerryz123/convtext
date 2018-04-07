@@ -13,10 +13,11 @@ configuration = {
     'QUEUE_LOADER' : True,
     'TRAIN_FILES' : [DATA_DIR + 'corpus.txt'],
     'TEST_FILES' : [DATA_DIR + 'corpus_test.txt'],
-    'LEARNING_RATE' :  0.0001,
+    'LEARNING_RATE' :  1e-3,
     'L2_REGULARIZATION' :  0,
     'DEBUG_STEP' : 100,
-    'NUM_EPOCHS' : 10000,
+    'SAVE_STEP' : 5000,
+    'NUM_EPOCHS' : 100000,
     'VALIDATION_SIZE' : 100,
     'SAVE_DIR' : "./model_ckpts/shakespeare"
 }

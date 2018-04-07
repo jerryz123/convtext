@@ -19,31 +19,28 @@ def main():
     SEQ_LENGTH = conf['SEQ_LENGTH']
     LEARNING_RATE = conf['LEARNING_RATE']
     L2_REGULARIZATION = conf['L2_REGULARIZATION']
-    DEBUG_STEP = conf['DEBUG_STEP']
+    DEBUG_STEP = conf['DEBUG_STEP'] if 'DEBUG_STEP' in conf else 100
+    SAVE_STEP = conf['SAVE_STEP'] if 'SAVE_STEP' in conf else 1000
     NUM_EPOCHS = conf['NUM_EPOCHS']
     VALIDATION_SIZE = conf['VALIDATION_SIZE']
     SAVE_DIR = conf['SAVE_DIR']
 
     if 'QUEUE_LOADER' in conf:
         from datasets.read_text_data import read_text_dataset
-        with tf.variable_scope('model', reuse=None) as training_scope:
-            batch_queue = read_text_dataset(conf)
+        batch_queue = read_text_dataset(conf)
+        input_data = batch_queue.get_next()
 
-            wavenet = WaveNet(conf)
-            input_data = batch_queue.get_next()
+        validation_queue = read_text_dataset(conf, is_training=False)
+        val_data = validation_queue.get_next()
+        wavenet = WaveNet(conf)
 
-            conv2 = wavenet.full_network(input_data)
-            loss = one_hot_character_loss(conv2, input_data, l2_norm=L2_REGULARIZATION,
+        conv2 = wavenet.full_network(input_data)
+
+        loss = one_hot_character_loss(conv2, input_data, l2_norm=L2_REGULARIZATION,
                                           edge_length=SEQ_LENGTH // 2)
 
-        with tf.variable_scope('val_model', reuse=None):
-            validation_queue = read_text_dataset(conf, is_training=False)
-            val_data = validation_queue.get_next()
-
-            with tf.variable_scope(training_scope, reuse=True):
-                wavenet = WaveNet(conf)
-                val_conv2 = wavenet.full_network(val_data)
-                val_loss = one_hot_character_loss(val_conv2, val_data, l2_norm=L2_REGULARIZATION,
+        val_conv2 = wavenet.full_network(val_data)
+        val_loss = one_hot_character_loss(val_conv2, val_data, l2_norm=L2_REGULARIZATION,
                                               edge_length=SEQ_LENGTH // 2)
 
     else:
@@ -68,14 +65,17 @@ def main():
 
     merge = tf.summary.merge_all()
     init_op = tf.global_variables_initializer()
-    saver = tf.train.Saver()
+
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    saver = tf.train.Saver(vars, max_to_keep  =0)
 
     with tf.Session() as sess:
         if 'QUEUE_LOADER' in conf:
             sess.run([batch_queue.initializer, validation_queue.initializer])
 
         ckpt = tf.train.get_checkpoint_state(SAVE_DIR)
-        writer = tf.summary.FileWriter("./log", sess.graph)
+        writer = tf.summary.FileWriter(SAVE_DIR, graph = sess.graph, flush_secs=10)
+
         sess.run(init_op)
         if ckpt:
             saver.restore(sess, ckpt.model_checkpoint_path)
@@ -83,13 +83,18 @@ def main():
         if 'QUEUE_LOADER' in conf:
             #technically not correct but treat num_epochs as num_iters
             for i in range(NUM_EPOCHS):
-                sess.run([optim])
-
                 if i % DEBUG_STEP == 0:
-                    val_loss = sess.run(val_loss)
-                    print(str(i) + " Loss " + str(val_loss))
+                    m_loss, v_loss, _ = sess.run([loss, val_loss, optim])
+                    print("Iter:", i, "Model Loss:", m_loss, "Val Loss:",v_loss)
 
-                if i % 1000 == 0:
+                    iter_summary = tf.Summary()
+                    iter_summary.value.add(tag="validation/loss", simple_value = v_loss)
+                    iter_summary.value.add(tag = "train/loss", simple_value = m_loss)
+                    writer.add_summary(iter_summary, i)
+                else:
+                    sess.run([optim])
+
+                if i % SAVE_STEP == 0 and i > 0:
                     checkpoint_path = os.path.join(SAVE_DIR, 'model.ckpt')
                     saver.save(sess, checkpoint_path, global_step=i)
                     print("Model saved")
@@ -107,7 +112,7 @@ def main():
                             t_loss += eval_loss
                         t_loss = t_loss / len(validation)
 
-                        print(str(bi) + " Loss " + str(t_loss))
+                        print("iter:" + str(bi) + " Loss " + str(t_loss))
                         # print("".join(one_hot_to_char(corpus.id2char, b[0][-10:])))
                         # print("".join(one_hot_to_char(corpus.id2char, conv_op[0][-10:])))
 
