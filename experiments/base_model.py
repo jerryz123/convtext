@@ -14,5 +14,7 @@ configuration = {
     'DEBUG_STEP' : 100,
     'NUM_EPOCHS' : 100,
     'VALIDATION_SIZE' : 100,
-    'SAVE_DIR' : "./model_ckpts/shakespeare"
+    'SAVE_DIR' : "./model_ckpts/shakespeare",
+    'GLOBAL_COND' : 0,
+    'LOCAL_COND' : 0
 }
