@@ -18,10 +18,12 @@ def read_text_dataset(conf, is_training = True):
 
     dataset = tf.data.TextLineDataset(filenames)#.shuffle(1000).repeat().flat_map(_map_line).batch(batch_size)
     dataset = dataset.repeat()
-    dataset = dataset.shuffle(1000)
+    #tokenize the dataset into onehot character distributions
     dataset = dataset.flat_map(_map_line)
-    #group one_hot characters then group into batches
-    dataset = dataset.batch(seq_length).batch(batch_size)
+    #group distributions into seq_length long batches
+    dataset = dataset.batch(seq_length).shuffle(1000)
+    #create batch_size number of seq_length sequences
+    dataset = dataset.batch(batch_size)
     return dataset.make_initializable_iterator()
 
 if __name__ == '__main__':

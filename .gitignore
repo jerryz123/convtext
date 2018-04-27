@@ -1,2 +1,4 @@
 *.pyc
 *~
+datasets/yelp_dataset/processed/
+datasets/yelp_dataset/records/
