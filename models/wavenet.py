@@ -48,6 +48,8 @@ class WaveNet(object):
     def __init__(self,conf):
         self.batch_size = conf['BATCH_SIZE']
         self.dilations = conf['DILATIONS']
+        self.global_cond_size = conf['GLOBAL_COND']
+        self.local_cond_size = conf['LOCAL_COND']
         self.filter_width = conf['FILTER_WIDTH']
         self.residual_channels = conf['RESIDUAL_CHANNELS']
         self.dilation_channels = conf['DILATION_CHANNELS']
@@ -108,6 +110,32 @@ class WaveNet(object):
                             dense_bias  = tf.zeros([self.residual_channels])
                             skip_bias   = tf.zeros([self.skip_channels])
 
+                        if (self.local_cond_size):
+                            local_cond_f_weights = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[1,
+                                                                                                             self.local_cond_size,
+                                                                                                             self.residual_channels]),
+                                                               name="layer{}_local_cond_filter".format(i))
+
+                            local_cond_g_weights = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[1,
+                                                                                                             self.local_cond_size,
+                                                                                                             self.residual_channels]),
+                                                               name="layer{}_local_cond_gate".format(i))
+                        else:
+                            local_cond_f_weights = tf.zeros([self.local_cond_size, self.residual_channels])
+                            local_cond_g_weights = tf.zeros([self.local_cond_size, self.residual_channels])
+
+                        if (self.global_cond_size):
+                            global_cond_f_mat = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[self.global_cond_size,
+                                                                                                          self.dilation_channels]),
+                                                            name="layer{}_global_cond_filter".format(i))
+                            global_cond_g_mat = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[self.global_cond_size,
+                                                                                                          self.dilation_channels]),
+                                                            name="layer{}_global_cond_gate".format(i))
+                        else:
+                            global_cond_f_mat = tf.zeros([1, self.global_cond_size, self.dilation_channels])
+                            global_cond_g_mat = tf.zeros([1, self.global_cond_size, self.dilation_channels])
+
+
                         self.variables['dilated_layers'].append({'filter':filter,
                                                                  'gate':gate,
                                                                  'dense':dense,
@@ -115,7 +143,11 @@ class WaveNet(object):
                                                                  'filter_bias':filter_bias,
                                                                  'gate_bias':gate_bias,
                                                                  'dense_bias':dense_bias,
-                                                                 'skip_bias':skip_bias})
+                                                                 'skip_bias':skip_bias,
+                                                                 'global_cond_f':global_cond_f_mat,
+                                                                 'global_cond_g':global_cond_g_mat,
+                                                                 'local_cond_f':local_cond_f_weights,
+                                                                 'local_cond_g':local_cond_g_weights})
             with tf.variable_scope('post_layer'):
                 filter1 = tf.Variable(tf.contrib.layers.xavier_initializer()(shape=[1,
                                                                                     self.skip_channels,
@@ -134,11 +166,13 @@ class WaveNet(object):
                                                 'filter2':filter2,
                                                 'bias2'  :bias2}
 
-    def full_network(self, inputs):
+    def full_network(self, inputs, global_cond=None, local_cond=None):
         """
         Creates full network, without dilation queues.
         This is more inefficient.
         Inputs should be of shape [self.batch_size, input_length, self.input_channels]
+        Global_cond should be of shape [self.batch_size, self.global_cond_size]
+        Local_cond should be of shape [self.batch_size, input_length, self.local_cond_size]
         """
 
         # Preprocess via initial causal convolution
@@ -167,6 +201,12 @@ class WaveNet(object):
                         dense_bias     = self.variables['dilated_layers'][i]['dense_bias']
                         skip_bias      = self.variables['dilated_layers'][i]['skip_bias']
 
+                        global_cond_filter = self.variables['dilated_layers'][i]['global_cond_f']
+                        global_cond_gate   = self.variables['dilated_layers'][i]['global_cond_g']
+
+                        local_cond_filter = self.variables['dilated_layers'][i]['local_cond_f']
+                        local_cond_gate   = self.variables['dilated_layers'][i]['local_cond_g']
+
                         # The following activation function (gated activation) is taken from WaveNet
                         # They found that this works well for audio data. We might want to
                         #   modify this for textual data
@@ -193,6 +233,25 @@ class WaveNet(object):
                                                     biases   = gate_bias,
                                                     dilation = dilation,
                                                     scope    = 'layer{}_gate'.format(i))
+                        if (self.global_cond_size):
+                            filter_global_cond = tf.expand_dims(tf.matmul(global_cond, global_cond_filter), 1)
+                            gate_global_cond   = tf.expand_dims(tf.matmul(global_cond, global_cond_gate), 1)
+                            filter_output += filter_global_cond
+                            gate_output   += gate_global_cond
+                        if (self.local_cond_size):
+                            filter_local_cond = tf.nn.conv1d(local_cond,
+                                                             local_cond_filter,
+                                                             stride = 1,
+                                                             padding = 'SAME',
+                                                             name = 'layer{}_local_cond_filter'.format(i))
+                            gate_local_cond   = tf.nn.conv1d(local_cond,
+                                                             local_cond_gate,
+                                                             stride = 1,
+                                                             name = 'layer{}_local_cond_gate'.format(i))
+                            filter_output += filter_local_cond
+                            gate_output   += gate_local_cond
+                            
+
                         filter_p_gate = tf.tanh(filter_output) * tf.sigmoid(gate_output)
 
                         # Generate dense output and add residual

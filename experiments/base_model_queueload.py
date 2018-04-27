@@ -8,6 +8,8 @@ configuration = {
     'FILTER_WIDTH' : 2,
     'RESIDUAL_CHANNELS' : 32,
     'DILATION_CHANNELS' : 32,
+    'GLOBAL_COND' : 0,
+    'LOCAL_COND' : 0,
     'NUM_CHANNELS' : 1,
     'SKIP_CHANNELS' : 16,
     'QUEUE_LOADER' : True,
