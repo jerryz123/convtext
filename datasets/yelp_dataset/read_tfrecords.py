@@ -31,8 +31,6 @@ def build_record_reader(conf):
 
 
 def main():
-    
-    print('imorting')
     conf = {'data_dir' : 'records', 'batch_size' : 16}
 
     title, star, text = build_record_reader(conf)
