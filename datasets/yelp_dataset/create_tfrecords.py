@@ -133,7 +133,6 @@ def main():
     print('TOP FIFTY TITLE WORDS')
     for w in sorted_title_words[:50]:
         print('title word', w, 'has count', unique_title_words[w])
-    print()
     
     word_to_token, word_lookup = init_tabels(unique_words, sorted_words)
     pkl.dump({'word_to_token' : word_to_token, 'word_lookup' : word_lookup}, open( "records/word_tabels.pkl", "wb" ))

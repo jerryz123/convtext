@@ -4,9 +4,14 @@ import glob
 import os
 import random 
 
-def build_record_reader(conf):
+def build_record_reader(conf, isTrain = True):
     filenames = glob.glob(os.path.join(conf['data_dir'], '*.tfrecords'))
-    random.shuffle(filenames)
+    
+    train_val_split = conf.get('train_val_split', 0.95)
+    if isTrain:
+        filenames = filenames[:int(len(filenames) * train_val_split)]
+    else:
+        filenames = filenames[int(len(filenames) * train_val_split):]
 
     def _parse_function(ex):
         context_feat = {"star": tf.FixedLenFeature([], dtype=tf.int64)}
@@ -31,7 +36,7 @@ def build_record_reader(conf):
 
 
 def main():
-    conf = {'data_dir' : 'records', 'batch_size' : 16}
+    conf = {'data_dir' : 'records', 'batch_size' : 8}
 
     title, star, text = build_record_reader(conf)
 
