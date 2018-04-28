@@ -3,14 +3,33 @@ import tensorflow as tf
 from datasets.yelp_dataset.read_tfrecords import build_record_reader
 from tensorflow.python.platform import flags
 from importlib.machinery import SourceFileLoader
+import pickle as pkl
+import numpy as np
 
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
     flags.DEFINE_string('config', '', 'path to configuration file')
+    flags.DEFINE_string('model', '', 'model to evaluate')
+def token_lookup(tokens, lookup, THRESH):
+    
+    words = []
+    for t in tokens.squeeze():
+        if t >= THRESH:
+            words.append('<UNK>')
+        else:
+            words.append(lookup[t])
+
+    
+    return words
 
 def main():
+    model_name = FLAGS.model
     hyperparams = SourceFileLoader('hyperparams', FLAGS.config).load_module()
     conf = hyperparams.configuration
+    conf['batch_size'] = 1
+
+    word_lookup_tabel = pkl.load(open(os.path.join(conf['data_dir'], 'word_tabels.pkl'), 'rb'))['word_lookup']
+    title_word_lookup_tabel = pkl.load(open(os.path.join(conf['data_dir'], 'b_name_word_tabels.pkl'), 'rb'))['word_lookup']
 
     with tf.variable_scope('model', reuse = None) as training_scope:
         train_title, train_star, train_text = build_record_reader(conf)
@@ -35,35 +54,27 @@ def main():
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
 
-    SAVE_DIR = conf['model_dir']
-    print("saving to:", SAVE_DIR)
-    if os.path.exists(SAVE_DIR):
-        print("ERROR SAVE DIR EXISTS")
-        exit(-1)
-    os.mkdir(SAVE_DIR)
+    MODEL_DIR = os.path.join(conf['model_dir'], model_name)
+    print("opening:", MODEL_DIR)
 
-    writer = tf.summary.FileWriter(SAVE_DIR, graph = sess.graph, flush_secs=10)
+    saver.restore(sess, MODEL_DIR)   
 
-    for i in range(conf.get('n_iters', 80000)):
-        print('on iter {}'.format(i), end='\r')
-        if i % conf.get('debug_step', 100) == 0:
-            m_loss, v_loss, _ = sess.run([train_model.loss, val_model.loss, train_operation])
-            print('At iter {}, model loss: {}, val model loss: {}\n'.format(i, m_loss, v_loss))
-
-            iter_summary = tf.Summary()
-            iter_summary.value.add(tag="validation/loss", simple_value = v_loss)
-            iter_summary.value.add(tag = "train/loss", simple_value = m_loss)
-            writer.add_summary(iter_summary, i)
-        else:
-            sess.run(train_operation)
-        
-        if i % conf.get('save_set', 1000) == 0 and i > 0:
-            checkpoint_path = os.path.join(SAVE_DIR, 'model{}.ckpt'.format(i))
-            saver.save(sess, checkpoint_path)
+    g_truth, logits, loss, input_title, input_stars = sess.run([val_model.input_text, val_model.logits, val_model.loss, val_model.input_title, val_model.input_stars])
+    gen_tokens = np.argmax(logits, axis = 2)
     
-    checkpoint_path = os.path.join(SAVE_DIR, 'modelfinal.ckpt')
-    saver.save(sess, checkpoint_path)     
-
+    print(g_truth.shape, gen_tokens.shape)
+    print('GENERATING REVIEW')
+    print('b_name', ' '.join(token_lookup(input_title[0], title_word_lookup_tabel, conf['n_title_words'])))
+    print('stars', input_stars[0, 0])
+    print()
+    print('GROUND TRUTH VS GEN')
+    g_truth_words, gen_words = token_lookup(g_truth[0], word_lookup_tabel, conf['n_words'] - 1), token_lookup(gen_tokens, word_lookup_tabel, conf['n_words'] - 1)
+    print("REAL")
+    print(' '.join(g_truth_words))
+    print("GEN")
+    print(' '.join(gen_words))
+    
+    
     sess.close()
 
 if __name__ == '__main__':

@@ -33,8 +33,35 @@ class LSTMGenerator(Generator):
 
         B, T_1, T_2 = tf.shape(star_vec)[0], tf.shape(title_vec)[1], tf.shape(text_vec)[1]
 
-        print(B, T_1, T_2)
-        print(1 / 0)
-        self.loss = tf.reduce_sum(title_vec - title_vec)
+        encoder_in = tf.concat((star_vec, title_vec), 1)
+
+        forward_cell = tf.nn.rnn_cell.BasicLSTMCell(self.conf['encoder_units'])
+        backward_cell = tf.nn.rnn_cell.BasicLSTMCell(self.conf['encoder_units'])
+        
+        bi_outputs, bi_encoder_state = tf.nn.bidirectional_dynamic_rnn(forward_cell, backward_cell, encoder_in, dtype = tf.float32)
+        encoder_outputs = tf.concat(bi_outputs, -1)
+
+        encoder_state = []
+        for layer_id in range(2):
+            encoder_state.append(bi_encoder_state[0][layer_id])  # forward
+            encoder_state.append(bi_encoder_state[1][layer_id])  # backward
+        encoder_state = tuple(encoder_state)
+
+
+        attention_mechanism = tf.contrib.seq2seq.LuongAttention(self.conf['encoder_units'], encoder_outputs)
+        helper = tf.contrib.seq2seq.TrainingHelper(text_vec, [T_2-1 for _ in range(self.conf['batch_size'])])
+
+        decoder_cell = tf.nn.rnn_cell.BasicLSTMCell(self.conf['encoder_units'])
+        decoder_cell = tf.contrib.seq2seq.AttentionWrapper(decoder_cell, attention_mechanism,attention_layer_size=self.conf['encoder_units'])
+        initial_state = decoder_cell.zero_state(dtype=tf.float32, batch_size=self.conf['batch_size'])
+        decoder = tf.contrib.seq2seq.BasicDecoder(decoder_cell, helper, initial_state, output_layer= tf.layers.Dense(self.N_WORDS, use_bias=False))
+
+        outputs, _, _ = tf.contrib.seq2seq.dynamic_decode(decoder)
+        self.logits = outputs.rnn_output
+        
+        crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.input_text[:, 1:], logits=self.logits)
+
+        self.loss = tf.reduce_sum(crossent) / tf.cast(B, tf.float32)
+
 
         
