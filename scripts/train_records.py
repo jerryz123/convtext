@@ -3,14 +3,19 @@ import tensorflow as tf
 from datasets.yelp_dataset.read_tfrecords import build_record_reader
 from tensorflow.python.platform import flags
 from importlib.machinery import SourceFileLoader
-
+from eval_records import token_lookup
+import numpy as np
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
     flags.DEFINE_string('config', '', 'path to configuration file')
+    flags.DEFINE_string('pretrained', '', 'pretrained path')
 
 def main():
     hyperparams = SourceFileLoader('hyperparams', FLAGS.config).load_module()
     conf = hyperparams.configuration
+
+    word_lookup_tabel = pkl.load(open(os.path.join(conf['data_dir'], 'word_tabels.pkl'), 'rb'))['word_lookup']
+    title_word_lookup_tabel = pkl.load(open(os.path.join(conf['data_dir'], 'b_name_word_tabels.pkl'), 'rb'))['word_lookup']
 
     with tf.variable_scope('model', reuse = None) as training_scope:
         train_title, train_star, train_text = build_record_reader(conf)
@@ -36,11 +41,16 @@ def main():
     sess.run(tf.global_variables_initializer())
 
     SAVE_DIR = conf['model_dir']
-    print("saving to:", SAVE_DIR)
-    if os.path.exists(SAVE_DIR):
-        print("ERROR SAVE DIR EXISTS")
-        exit(-1)
-    os.mkdir(SAVE_DIR)
+    if len(FLAGS.pretrained) > 0:
+        print("saving to:", SAVE_DIR)
+        if os.path.exists(SAVE_DIR):
+            print("ERROR SAVE DIR EXISTS")
+            exit(-1)
+        os.mkdir(SAVE_DIR)
+    else:
+        load_dir = os.path.join(SAVE_DIR, FLAGS.pretrained)
+        print("loading pretrained model:", MODEL_DIR)
+        saver.restore(sess, load_dir)  
 
     writer = tf.summary.FileWriter(SAVE_DIR, graph = sess.graph, flush_secs=10)
 
@@ -54,6 +64,20 @@ def main():
             iter_summary.value.add(tag="validation/loss", simple_value = v_loss)
             iter_summary.value.add(tag = "train/loss", simple_value = m_loss)
             writer.add_summary(iter_summary, i)
+
+            if i % conf.get('eval_step', 1000) == 0:
+                g_truth, logits, _, input_title, input_stars = sess.run([val_model.input_text, val_model.logits, train_operation, val_model.input_title, val_model.input_stars])
+                gen_tokens = np.argmax(logits, axis = 2)
+                print('GENERATING REVIEW')
+                print('b_name', ' '.join(token_lookup(input_title[0], title_word_lookup_tabel, conf['n_title_words'])))
+                print('stars', input_stars[0, 0])
+                print()
+                print('GROUND TRUTH VS GEN')
+                g_truth_words, gen_words = token_lookup(g_truth[0], word_lookup_tabel, conf['n_words'] - 1), token_lookup(gen_tokens, word_lookup_tabel, conf['n_words'] - 1)
+                print("REAL")
+                print(' '.join(g_truth_words))
+                print("GEN")
+                print(' '.join(gen_words))
         else:
             sess.run(train_operation)
         
