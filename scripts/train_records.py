@@ -70,7 +70,7 @@ def main():
 
             if i % conf.get('eval_step', 1000) == 0:
                 g_truth, logits, _, input_title, input_stars = sess.run([val_model.input_text, val_model.logits, train_operation, val_model.input_title, val_model.input_stars])
-                gen_tokens = np.argmax(logits, axis = 2)
+                gen_tokens = np.argmax(logits[0], axis = -1)
                 print('GENERATING REVIEW')
                 print('b_name', ' '.join(token_lookup(input_title[0], title_word_lookup_tabel, conf['n_title_words'])))
                 print('stars', input_stars[0, 0])
