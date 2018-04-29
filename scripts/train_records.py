@@ -15,14 +15,14 @@ def main():
     with tf.variable_scope('model', reuse = None) as training_scope:
         train_title, train_star, train_text = build_record_reader(conf)
         train_model = conf['model'](conf, train_title, train_star, train_text)
-        train_model.build()
+        train_model.build(is_Train = True)
 
     with tf.variable_scope('val_model', reuse = None):
         val_title, val_star, val_text = build_record_reader(conf, isTrain = False)
 
         with tf.variable_scope(training_scope, reuse=True):
             val_model = conf['model'](conf, val_title, val_star, val_text)
-            val_model.build()
+            val_model.build(is_Train = True)
 
     optimizer = tf.train.AdamOptimizer()
     gradients, variables = zip(*optimizer.compute_gradients(train_model.loss))
@@ -46,7 +46,7 @@ def main():
 
     for i in range(conf.get('n_iters', 80000)):
         print('on iter {}'.format(i), end='\r')
-        if i % conf.get('debug_step', 100) == 0:
+        if i % conf.get('debug_step', 10) == 0:
             m_loss, v_loss, _ = sess.run([train_model.loss, val_model.loss, train_operation])
             print('At iter {}, model loss: {}, val model loss: {}\n'.format(i, m_loss, v_loss))
 
@@ -58,10 +58,10 @@ def main():
             sess.run(train_operation)
         
         if i % conf.get('save_set', 1000) == 0 and i > 0:
-            checkpoint_path = os.path.join(SAVE_DIR, 'model{}.ckpt'.format(i))
+            checkpoint_path = os.path.join(SAVE_DIR, 'model{}'.format(i))
             saver.save(sess, checkpoint_path)
     
-    checkpoint_path = os.path.join(SAVE_DIR, 'modelfinal.ckpt')
+    checkpoint_path = os.path.join(SAVE_DIR, 'modelfinal')
     saver.save(sess, checkpoint_path)     
 
     sess.close()
