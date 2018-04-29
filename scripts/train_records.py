@@ -46,7 +46,7 @@ def main():
 
     for i in range(conf.get('n_iters', 80000)):
         print('on iter {}'.format(i), end='\r')
-        if i % conf.get('debug_step', 10) == 0:
+        if i % conf.get('debug_step', 100) == 0:
             m_loss, v_loss, _ = sess.run([train_model.loss, val_model.loss, train_operation])
             print('At iter {}, model loss: {}, val model loss: {}\n'.format(i, m_loss, v_loss))
 
