@@ -5,6 +5,7 @@ from tensorflow.python.platform import flags
 from importlib.machinery import SourceFileLoader
 from eval_records import token_lookup
 import numpy as np
+import pickle as pkl
 if __name__ == '__main__':
     FLAGS = flags.FLAGS
     flags.DEFINE_string('config', '', 'path to configuration file')
@@ -43,7 +44,8 @@ def main():
 
     SAVE_DIR = conf['model_dir']
     start_iter = 0
-    if len(FLAGS.pretrained) > 0:
+
+    if len(FLAGS.pretrained) == 0:
         print("saving to:", SAVE_DIR)
         if os.path.exists(SAVE_DIR):
             print("ERROR SAVE DIR EXISTS")
