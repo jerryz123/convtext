@@ -14,5 +14,7 @@ configuration = {
     'feedforward_dim' : 2048,
     'num_repeats' : 6,
     'clip_grad' : 1.0,
-    'learning_rate' : 0.0001
+    'learning_rate' : 0.0001,
+    'n_iters' : 300000,
+    'save_step' : 10000
 }

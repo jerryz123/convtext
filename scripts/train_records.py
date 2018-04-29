@@ -84,7 +84,7 @@ def main():
         else:
             sess.run(train_operation)
         
-        if i % conf.get('save_set', 1000) == 0 and i > 0:
+        if i % conf.get('save_step', 1000) == 0 and i > 0:
             checkpoint_path = os.path.join(SAVE_DIR, 'model{}'.format(i))
             saver.save(sess, checkpoint_path)
     
