@@ -29,9 +29,10 @@ def main():
             val_model = conf['model'](conf, val_title, val_star, val_text)
             val_model.build(is_Train = True)
 
-    optimizer = tf.train.AdamOptimizer()
+    optimizer = tf.train.AdamOptimizer(learning_rate=conf.get('learning_rate', 0.001))
     gradients, variables = zip(*optimizer.compute_gradients(train_model.loss))
-    gradients, _ = tf.clip_by_global_norm(gradients, conf.get('clip_grad', 1.0))
+    if 'clip_grad' in conf:
+        gradients, _ = tf.clip_by_global_norm(gradients, conf['clip_grad'])
     train_operation = optimizer.apply_gradients(zip(gradients, variables))
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
@@ -41,6 +42,7 @@ def main():
     sess.run(tf.global_variables_initializer())
 
     SAVE_DIR = conf['model_dir']
+    start_iter = 0
     if len(FLAGS.pretrained) > 0:
         print("saving to:", SAVE_DIR)
         if os.path.exists(SAVE_DIR):
@@ -49,12 +51,13 @@ def main():
         os.mkdir(SAVE_DIR)
     else:
         load_dir = os.path.join(SAVE_DIR, FLAGS.pretrained)
-        print("loading pretrained model:", MODEL_DIR)
-        saver.restore(sess, load_dir)  
+        print("loading pretrained model:", load_dir)
+        saver.restore(sess, load_dir)
+        start_iter = int(FLAGS.pretrained.split('model')[1]) + 1
 
     writer = tf.summary.FileWriter(SAVE_DIR, graph = sess.graph, flush_secs=10)
 
-    for i in range(conf.get('n_iters', 80000)):
+    for i in range(start_iter, conf.get('n_iters', 80000)):
         print('on iter {}'.format(i), end='\r')
         if i % conf.get('debug_step', 100) == 0:
             m_loss, v_loss, _ = sess.run([train_model.loss, val_model.loss, train_operation])
