@@ -29,8 +29,9 @@ def main():
         with tf.variable_scope(training_scope, reuse=True):
             val_model = conf['model'](conf, val_title, val_star, val_text)
             val_model.build(is_Train = True)
-
-    optimizer = tf.train.AdamOptimizer(learning_rate=conf.get('learning_rate', 0.001))
+    
+    learning_rate = tf.placeholder(tf.float32, shape=[])
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate,  beta1=0.9,beta2=0.998,epsilon=1e-09)
     gradients, variables = zip(*optimizer.compute_gradients(train_model.loss))
     if 'clip_grad' in conf:
         gradients, _ = tf.clip_by_global_norm(gradients, conf['clip_grad'])
@@ -61,8 +62,17 @@ def main():
 
     for i in range(start_iter, conf.get('n_iters', 80000)):
         print('on iter {}'.format(i), end='\r')
+
+        if 'learning_rate' in conf:
+            f_dict = {learning_rate : conf['learning_rate']}
+        else:
+            step_num = i + 1
+            step_term = min(1. / np.sqrt(step_num), step_num * np.power(4000, -1.5))
+            print(1. / np.sqrt(conf['d_embed']) * step_term)
+            f_dict = {learning_rate : 1. / np.sqrt(conf['d_embed']) * step_term}
+        
         if i % conf.get('debug_step', 100) == 0:
-            m_loss, v_loss, _ = sess.run([train_model.loss, val_model.loss, train_operation])
+            m_loss, v_loss, _ = sess.run([train_model.loss, val_model.loss, train_operation], feed_dict=f_dict)
             print('At iter {}, model loss: {}, val model loss: {}\n'.format(i, m_loss, v_loss))
 
             iter_summary = tf.Summary()
@@ -71,7 +81,7 @@ def main():
             writer.add_summary(iter_summary, i)
 
             if i % conf.get('eval_step', 1000) == 0:
-                g_truth, logits, _, input_title, input_stars = sess.run([val_model.input_text, val_model.logits, train_operation, val_model.input_title, val_model.input_stars])
+                g_truth, logits, _, input_title, input_stars = sess.run([val_model.input_text, val_model.logits, train_operation, val_model.input_title, val_model.input_stars], feed_dict=f_dict)
                 gen_tokens = np.argmax(logits[0], axis = -1)
                 print('GENERATING REVIEW')
                 print('b_name', ' '.join(token_lookup(input_title[0], title_word_lookup_tabel, conf['n_title_words'])))
@@ -84,7 +94,7 @@ def main():
                 print("GEN")
                 print(' '.join(gen_words))
         else:
-            sess.run(train_operation)
+            sess.run(train_operation, feed_dict=f_dict)
         
         if i % conf.get('save_step', 1000) == 0 and i > 0:
             checkpoint_path = os.path.join(SAVE_DIR, 'model{}'.format(i))
