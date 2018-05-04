@@ -40,7 +40,11 @@ def main():
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     saver = tf.train.Saver(vars, max_to_keep=0)
 
-    sess = tf.Session()
+    config = tf.ConfigProto(
+        device_count = {'GPU': 0}
+    )
+
+    sess = tf.Session(config = config)
     sess.run(tf.global_variables_initializer())
 
     SAVE_DIR = conf['model_dir']
@@ -57,6 +61,8 @@ def main():
         print("loading pretrained model:", load_dir)
         saver.restore(sess, load_dir)
         start_iter = int(FLAGS.pretrained.split('model')[1]) + 1
+    
+    eval_out = open(os.path.join(SAVE_DIR, "eval.txt"), "a+")
 
     writer = tf.summary.FileWriter(SAVE_DIR, graph = sess.graph, flush_secs=10)
 
@@ -84,18 +90,26 @@ def main():
             writer.add_summary(iter_summary, i)
 
             if i % conf.get('eval_step', 1000) == 0:
-                g_truth, logits, _, input_title, input_stars = sess.run([val_model.input_text, val_model.logits, train_operation, val_model.input_title, val_model.input_stars], feed_dict=f_dict)
+                g_truth, logits, _, input_title, input_stars = sess.run([val_model.input_text, val_model.logits, train_operation, val_model.input_title, val_model.raw_stars], feed_dict=f_dict)
                 gen_tokens = np.argmax(logits[0], axis = -1)
-                print('GENERATING REVIEW')
-                print('b_name', ' '.join(token_lookup(input_title[0], title_word_lookup_tabel, conf['n_title_words'])))
-                print('stars', input_stars[0, 0])
-                print()
-                print('GROUND TRUTH VS GEN')
+                eval_out.write('GENERATING REVIEW AT ITER: {}'.format(i))
+                eval_out.write('\n')
+                eval_out.write('b_name: ' + ' '.join(token_lookup(input_title[0], title_word_lookup_tabel, conf['n_title_words'])))
+                eval_out.write('\n')
+                eval_out.write('stars: {}'.format(input_stars[0, 0]))
+                eval_out.write('\n \n')
+                eval_out.write('GROUND TRUTH VS GEN')
+                eval_out.write('\n')
                 g_truth_words, gen_words = token_lookup(g_truth[0], word_lookup_tabel, conf['n_words'] - 1), token_lookup(gen_tokens, word_lookup_tabel, conf['n_words'] - 1)
-                print("REAL")
-                print(' '.join(g_truth_words))
-                print("GEN")
-                print(' '.join(gen_words))
+                eval_out.write("REAL")
+                eval_out.write('\n')
+                eval_out.write(' '.join(g_truth_words))
+                eval_out.write('\n')
+                eval_out.write("GEN")
+                eval_out.write('\n')
+                eval_out.write(' '.join(gen_words))
+                eval_out.write('\n\n')
+                eval_out.flush()
         else:
             sess.run(train_operation, feed_dict=f_dict)
         
