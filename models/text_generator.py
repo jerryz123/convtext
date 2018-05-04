@@ -5,10 +5,10 @@ def create_embed(name, N, DIM):
     return tf.get_variable(name, shape=[N, DIM],
            initializer=tf.contrib.layers.xavier_initializer())
 class Generator:
-    N_STARS = 5
+    N_STARS = 5 #every yelp review has 1-5 (inc) stars
 
-    def __init__(self, conf, title, stars, text):
-        self.raw_title, self.raw_stars, self.raw_text = title, stars, text
+    def __init__(self, conf, title, stars, text, valid_mask):
+        self.raw_title, self.raw_stars, self.raw_text, self.raw_mask = title, stars, text, valid_mask
         self.conf = conf
 
         self.N_TITLE_WORDS = self.conf['n_title_words']
@@ -22,6 +22,7 @@ class Generator:
         self.input_text = tf.cast(tf.clip_by_value(self.raw_text, 0, self.N_WORDS - 1), self.raw_text.dtype) #only consider top N_WORDS, rest go to -> <UNK>
         self.input_title = tf.cast(self.raw_title < self.N_TITLE_WORDS, self.raw_title.dtype) * self.raw_title #only consider top N_TITLE_WORDS, rest go to -> <UNK>
         self.input_stars = self.raw_stars - 1
+        self.input_valid_mask = self.raw_mask
     
     def build(self, is_Train = True):
         raise NotImplementedError('Generator is Abstract')
@@ -154,7 +155,9 @@ class TransformerGenerator(Generator):
         
         self.logits = tf.layers.dense(prev_dec_out, self.N_WORDS)
         crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.input_text[:, 1:], logits=self.logits)
+        masked_crossent = crossent * self.input_valid_mask[:, 1:]   #mask all loss to 0 after first end token
 
-        self.loss = tf.reduce_sum(crossent) / tf.cast(tf.shape(self.logits)[0], tf.float32) / tf.cast(tf.shape(self.logits)[1], tf.float32)
+        self.loss = tf.reduce_sum(masked_crossent) / tf.cast(tf.shape(self.logits)[0], tf.float32) #average per batch (places higher weight on large streams)
+        self.norm_loss = self.loss / tf.cast(tf.shape(self.logits)[1], tf.float32) #average per time (more useful to report)
         
         

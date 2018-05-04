@@ -19,19 +19,19 @@ def main():
     title_word_lookup_tabel = pkl.load(open(os.path.join(conf['data_dir'], 'b_name_word_tabels.pkl'), 'rb'))['word_lookup']
 
     with tf.variable_scope('model', reuse = None) as training_scope:
-        train_title, train_star, train_text = build_record_reader(conf)
-        train_model = conf['model'](conf, train_title, train_star, train_text)
+        train_title, train_star, train_text, train_valid = build_record_reader(conf)
+        train_model = conf['model'](conf, train_title, train_star, train_text, train_valid)
         train_model.build(is_Train = True)
 
     with tf.variable_scope('val_model', reuse = None):
-        val_title, val_star, val_text = build_record_reader(conf, isTrain = False)
+        val_title, val_star, val_text, val_valid = build_record_reader(conf, isTrain = False)
 
         with tf.variable_scope(training_scope, reuse=True):
-            val_model = conf['model'](conf, val_title, val_star, val_text)
+            val_model = conf['model'](conf, val_title, val_star, val_text, val_valid)
             val_model.build(is_Train = True)
     
     learning_rate = tf.placeholder(tf.float32, shape=[])
-    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate,  beta1=0.9,beta2=0.998,epsilon=1e-09)
+    optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
     gradients, variables = zip(*optimizer.compute_gradients(train_model.loss))
     if 'clip_grad' in conf:
         gradients, _ = tf.clip_by_global_norm(gradients, conf['clip_grad'])
@@ -64,7 +64,10 @@ def main():
         print('on iter {}'.format(i), end='\r')
 
         if 'learning_rate' in conf:
-            f_dict = {learning_rate : conf['learning_rate']}
+            iter_rate = conf['learning_rate']
+            if i > 25500: #should start cooling roughly about here
+                iter_rate /= np.sqrt(i)
+            f_dict = {learning_rate : iter_rate}
         else:
             step_num = i + 1
             step_term = min(1. / np.sqrt(step_num), step_num * np.power(4000, -1.5))
@@ -72,7 +75,7 @@ def main():
             f_dict = {learning_rate : 1. / np.sqrt(conf['d_embed']) * step_term}
         
         if i % conf.get('debug_step', 100) == 0:
-            m_loss, v_loss, _ = sess.run([train_model.loss, val_model.loss, train_operation], feed_dict=f_dict)
+            m_loss, v_loss, _ = sess.run([train_model.norm_loss, val_model.norm_loss, train_operation], feed_dict=f_dict)
             print('At iter {}, model loss: {}, val model loss: {}\n'.format(i, m_loss, v_loss))
 
             iter_summary = tf.Summary()

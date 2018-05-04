@@ -50,8 +50,8 @@ def main():
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     saver = tf.train.Saver(vars, max_to_keep=0)
-
-    sess = tf.Session()
+    config = tf.ConfigProto(device_count = {'GPU': 0})
+    sess = tf.Session(config = config)
     sess.run(tf.global_variables_initializer())
 
     MODEL_DIR = os.path.join(conf['model_dir'], model_name)

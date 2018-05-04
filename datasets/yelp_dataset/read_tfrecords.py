@@ -22,30 +22,31 @@ def build_record_reader(conf, isTrain = True):
         
         star_tensor = tf.expand_dims(context_parsed["star"], 0)
         text_tensor, title_tensor = sequence_parsed["text"], sequence_parsed["title"]
-        return title_tensor, star_tensor, text_tensor
+        return title_tensor, star_tensor, text_tensor, tf.ones_like(text_tensor, dtype=tf.float32)
     
     dataset = tf.data.TFRecordDataset(filenames)
     dataset = dataset.map(_parse_function)
     dataset = dataset.shuffle(buffer_size=10000)
     dataset = dataset.repeat()
-    dataset = dataset.padded_batch(conf.get('batch_size', 1), ([None], [None], [None]))
+    dataset = dataset.padded_batch(conf.get('batch_size', 1), ([None], [None], [None], [None]))
     iterator = dataset.make_one_shot_iterator()
 
-    title_tensor, star_tensor, text_tensor = iterator.get_next()
-    return  title_tensor, star_tensor, text_tensor
+    title_tensor, star_tensor, text_tensor, valid_mask = iterator.get_next()
+    return  title_tensor, star_tensor, text_tensor, valid_mask
 
 
 def main():
-    conf = {'data_dir' : 'records', 'batch_size' : 8}
+    conf = {'data_dir' : 'records', 'batch_size' : 2}
 
-    title, star, text = build_record_reader(conf)
+    title, star, text, valid = build_record_reader(conf)
 
     sess = tf.Session()
-    title_npy, star_npy, text_npy = sess.run([title, star, text])
+    title_npy, star_npy, text_npy, valid_npy = sess.run([title, star, text, valid])
 
     print('title', title_npy.shape)
     print('star', star_npy.shape)
     print('text', text_npy.shape)
+    print('val', valid_npy.shape)
 
     word_lookup = pkl.load(open('records/word_tabels.pkl', 'rb'))['word_lookup']
     word_lookup_title = pkl.load(open('records/b_name_word_tabels.pkl', 'rb'))['word_lookup']
@@ -54,9 +55,11 @@ def main():
         title = ' '.join([word_lookup_title[t] for t in title_npy[b]])
         stars = star_npy[b][0]
         text = ' '.join([word_lookup[t] for t in text_npy[b]])
+        valid = valid_npy[b]
         print('business:', title)
         print('review stars', stars)
         print('review text', text)
+        print('valid', valid)
 
 if __name__ == '__main__':
     main()

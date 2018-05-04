@@ -7,7 +7,7 @@ configuration = {
     'batch_size' : 8,
     'train_val_split' : 0.95, #0.95 by default
     'model' : TransformerGenerator,
-    'model_dir' : os.path.join(os.environ.get('SAVE_DIR', DEFAULT_SAVE_DIR), 'transformer_model_slr_new/'),
+    'model_dir' : os.path.join(os.environ.get('SAVE_DIR', DEFAULT_SAVE_DIR), 'base_model/'),
     'd_embed' : 512,
     'n_words' : 7000,
     'n_title_words' : 7000,
