@@ -40,11 +40,7 @@ def main():
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     saver = tf.train.Saver(vars, max_to_keep=0)
 
-    config = tf.ConfigProto(
-        device_count = {'GPU': 0}
-    )
-
-    sess = tf.Session(config = config)
+    sess = tf.Session()
     sess.run(tf.global_variables_initializer())
 
     SAVE_DIR = conf['model_dir']
