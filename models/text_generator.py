@@ -132,7 +132,11 @@ class TransformerGenerator(Generator):
         star_vec = tf.nn.embedding_lookup(self.stars_embed, self.input_stars) # (B, 1, DIM)
 
         encoder_inputs = tf.concat((star_vec, title_vec), 1)
-        shifted_decoder_in = text_vec[:, :-1, :]
+
+        if is_Train:
+            shifted_decoder_in = text_vec[:, :-1, :]
+        else:
+            shifted_decoder_in = text_vec
 
         pos_encoder_inputs = encoder_inputs + self._create_pos_encoding(encoder_inputs)
         pos_decoder_inputs = shifted_decoder_in + self._create_pos_encoding(shifted_decoder_in)
@@ -154,6 +158,7 @@ class TransformerGenerator(Generator):
             prev_enc_out = enc_out
         
         self.logits = tf.layers.dense(prev_dec_out, self.N_WORDS)
+        self.softmax = tf.nn.softmax(self.logits, axis = -1)
         crossent = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.input_text[:, 1:], logits=self.logits)
         masked_crossent = crossent * self.input_valid_mask[:, 1:]   #mask all loss to 0 after first end token
 

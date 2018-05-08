@@ -70,3 +70,6 @@ def main():
             t[-1][out_id] = 1
             one_hot = t
             print("".join([corpus.id2char[np.argmax(j)] for j in one_hot]))
+
+if  __name__ == '__main__':
+    main()

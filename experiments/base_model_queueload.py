@@ -1,4 +1,4 @@
-DATA_DIR = '../datasets/'
+DATA_DIR = 'datasets/'
 configuration = {
     'BATCH_SIZE': 1,
     'SEQ_LENGTH' : 2048,
@@ -18,7 +18,7 @@ configuration = {
     'LEARNING_RATE' :  1e-3,
     'L2_REGULARIZATION' :  0,
     'DEBUG_STEP' : 100,
-    'SAVE_STEP' : 5000,
+    'SAVE_STEP' : 10,
     'NUM_EPOCHS' : 100000,
     'VALIDATION_SIZE' : 100,
     'SAVE_DIR' : "./model_ckpts/shakespeare"
