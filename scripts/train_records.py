@@ -67,22 +67,24 @@ def main():
 
         if 'learning_rate' in conf:
             iter_rate = conf['learning_rate']
-            if i > 25500: #should start cooling roughly about here
-                iter_rate /= np.sqrt(i)
+            if 'lr_decay' in conf and i > conf['lr_decay']: #should start cooling roughly about here
+                iter_rate /= np.sqrt(i - conf['lr_decay'])
             f_dict = {learning_rate : iter_rate}
         else:
             step_num = i + 1
             step_term = min(1. / np.sqrt(step_num), step_num * np.power(4000, -1.5))
-            print(1. / np.sqrt(conf['d_embed']) * step_term)
-            f_dict = {learning_rate : 1. / np.sqrt(conf['d_embed']) * step_term}
+            
+            f_dict = {learning_rate : 0.1 / np.sqrt(conf['d_embed']) * step_term}
         
         if i % conf.get('debug_step', 100) == 0:
-            m_loss, v_loss, _ = sess.run([train_model.norm_loss, val_model.norm_loss, train_operation], feed_dict=f_dict)
+            m_loss, v_loss,op_loss,v_op_loss, _ = sess.run([train_model.norm_loss, val_model.norm_loss, train_model.loss, val_model.loss, train_operation], feed_dict=f_dict)
             print('At iter {}, model loss: {}, val model loss: {}\n'.format(i, m_loss, v_loss))
 
             iter_summary = tf.Summary()
-            iter_summary.value.add(tag="validation/loss", simple_value = v_loss)
-            iter_summary.value.add(tag = "train/loss", simple_value = m_loss)
+            iter_summary.value.add(tag="validation/full_loss", simple_value = v_op_loss)
+            iter_summary.value.add(tag="train/full_loss", simple_value = op_loss)
+            iter_summary.value.add(tag="validation/word_loss", simple_value = v_loss)
+            iter_summary.value.add(tag = "train/word_loss", simple_value = m_loss)
             writer.add_summary(iter_summary, i)
 
             if i % conf.get('eval_step', 1000) == 0:
